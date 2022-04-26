@@ -90,19 +90,33 @@ type MCU struct {
 	ch3 [64]int
 }
 
+type Component struct {
+	qTableId   int // the quantization table id
+	acHTableId int // the AC huffman table id
+	dcHTableId int // the DC huffman table id
+	id         int // the component id
+}
+
+type QuantizationTable struct {
+	id    int
+	table [64]float32
+}
+
 type Bitmap struct {
 	filename string
 	width    int // the image width
 	height   int // the image height
 	size     int // the size of the pixel array in bytes
 	MCUs     []MCU
+	comps    [3]Component // the 3 components
+	qTables  [2]QuantizationTable
 }
 
 func padInt(a int) string {
 	aStr := fmt.Sprintf("%d", a)
 	rem := 3 - len(aStr)
 	for k := 0; k < rem; k++ {
-		aStr = "0" + aStr
+		aStr = " " + aStr
 	}
 	return aStr
 }
@@ -134,12 +148,66 @@ func writeMCU(mcu MCU) {
 	fmt.Printf("\n")
 }
 
+// quatization table 1
+var qTable1 = [64]float32{
+	16, 11, 10, 16, 24, 40, 51, 61,
+	12, 12, 14, 19, 26, 58, 60, 55,
+	14, 13, 16, 24, 40, 57, 69, 56,
+	14, 17, 22, 29, 51, 87, 80, 62,
+	18, 22, 37, 56, 68, 109, 103, 77,
+	24, 35, 55, 64, 81, 104, 113, 92,
+	49, 64, 78, 87, 103, 121, 120, 101,
+	72, 92, 95, 98, 112, 100, 103, 99,
+}
+
+// quantization table 2
+var qTable2 = [64]float32{
+	17, 18, 24, 47, 99, 99, 99, 99,
+	18, 21, 26, 66, 99, 99, 99, 99,
+	24, 26, 56, 99, 99, 99, 99, 99,
+	47, 66, 99, 99, 99, 99, 99, 99,
+	99, 99, 99, 99, 99, 99, 99, 99,
+	99, 99, 99, 99, 99, 99, 99, 99,
+	99, 99, 99, 99, 99, 99, 99, 99,
+	99, 99, 99, 99, 99, 99, 99, 99,
+}
+
 func decodeBitmap(fn string) *Bitmap {
+	// The quantization tables
+	qTables := [2]QuantizationTable{
+		{
+			id:    1,
+			table: qTable1,
+		},
+		{
+			id:    2,
+			table: qTable2,
+		},
+	}
+	// the 3 components
+	comps := [3]Component{
+		{
+			qTableId: 1,
+			id:       1,
+		},
+		{
+			qTableId: 2,
+			id:       2,
+		},
+		{
+			qTableId: 2,
+			id:       3,
+		},
+	}
+	// the bitmap header
 	bmp := Bitmap{
 		filename: fn,
+		comps:    comps,
+		qTables:  qTables,
 	}
 
 	fmt.Printf("** Decoding the bitmap file '%s' **\n", fn)
+
 	bf := GetBuffer(fn)
 	if bf == nil {
 		return nil
@@ -189,17 +257,17 @@ func decodeBitmap(fn string) *Bitmap {
 			gb, _ := bf.read()
 			rb, _ := bf.read()
 			// conver them into floats
-			r := float64(rb)
-			g := float64(gb)
-			b := float64(bb)
+			r := float32(rb)
+			g := float32(gb)
+			b := float32(bb)
 			// conver the RGB data into YCbCr
-			mcu.ch1[_pixelIndex] = int(16.0 + 65.481*r + 128.553*g + 24.966*b)
-			mcu.ch2[_pixelIndex] = int(128.0 - 37.797*r - 74.203*g + 112.0*b)
-			mcu.ch3[_pixelIndex] = int(128.0 + 112.0*r - 93.786*g - 18.214*b)
+			mcu.ch1[_pixelIndex] = int((16.0 + ((65.481*r + 128.553*g + 24.966*b) / 256.0)) / qTable1[_pixelIndex])
+			mcu.ch2[_pixelIndex] = int((128.0 + ((-37.797*r - 74.203*g + 112.0*b) / 256.0)) / qTable2[_pixelIndex])
+			mcu.ch3[_pixelIndex] = int((128.0 + ((112.0*r - 93.786*g - 18.214*b) / 256.0)) / qTable2[_pixelIndex])
 		}
 	}
 
-	writeMCU(mcuArray[0])
+	writeMCU(mcuArray[1000])
 	bf.f.Close()
 	bmp.MCUs = mcuArray
 	return &bmp
