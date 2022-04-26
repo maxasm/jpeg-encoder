@@ -184,18 +184,23 @@ func decodeBitmap(fn string) *Bitmap {
 			_mcuIndex := (_mcuHeight * mcuWidth) + _mcuWidth
 			_pixelIndex := (_pxHeight * 8) + _pxWidth
 			mcu := &mcuArray[_mcuIndex]
-
-			// Go through all 3 channels RGB
+			// Get the RGB data
 			bb, _ := bf.read()
-			mcu.ch3[_pixelIndex] = int(bb)
 			gb, _ := bf.read()
-			mcu.ch2[_pixelIndex] = int(gb)
 			rb, _ := bf.read()
-			mcu.ch1[_pixelIndex] = int(rb)
+			// conver them into floats
+			r := float64(rb)
+			g := float64(gb)
+			b := float64(bb)
+			// conver the RGB data into YCbCr
+			mcu.ch1[_pixelIndex] = int(16.0 + 65.481*r + 128.553*g + 24.966*b)
+			mcu.ch2[_pixelIndex] = int(128.0 - 37.797*r - 74.203*g + 112.0*b)
+			mcu.ch3[_pixelIndex] = int(128.0 + 112.0*r - 93.786*g - 18.214*b)
 		}
 	}
 
 	writeMCU(mcuArray[0])
+	bf.f.Close()
 	bmp.MCUs = mcuArray
 	return &bmp
 }
