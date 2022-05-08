@@ -218,6 +218,8 @@ func getImageData(fn string) *ImageData {
 func decodeBitmap(f string) {
 	idt := getImageData(f)
 	forwardDCT(idt)
+	quantize(idt, stb1, stb2)
+	writeMCU(idt.MCUs[0])
 }
 
 func forwardDCT(idt *ImageData) {
@@ -383,6 +385,25 @@ func componentForwardDCT(comp *[64]int) {
 		(*comp)[a*8+1] = int(g5 * s1)
 		(*comp)[a*8+7] = int(g6 * s7)
 		(*comp)[a*8+3] = int(g7 * s3)
+	}
+}
+
+// performs quantization on the Y channel using qt1
+// and on the Cb and Cr channel using qt2
+func quantize(idt *ImageData, qt1 [64]int, qt2 [64]int) {
+	for y := 0; y < idt.blockHeight; y++ {
+		for x := 0; x < idt.blockWidth; x++ {
+			mcu := &idt.MCUs[(y*idt.blockWidth)+x]
+			// quantize the Y channel
+			for a := 0; a < 64; a++ {
+				(*mcu).ch1[a] /= qt1[a]
+			}
+			// quantize the Cb and Cr channels
+			for a := 0; a < 64; a++ {
+				(*mcu).ch2[a] /= qt2[a]
+				(*mcu).ch3[a] /= qt2[a]
+			}
+		}
 	}
 }
 
