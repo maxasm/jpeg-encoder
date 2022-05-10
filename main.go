@@ -217,9 +217,13 @@ func getImageData(fn string) *ImageData {
 
 func decodeBitmap(f string) {
 	idt := getImageData(f)
+	if idt == nil {
+		return
+	}
 	forwardDCT(idt)
 	quantize(idt, stb1, stb2)
-	writeMCU(idt.MCUs[0])
+	//writeMCU(idt.MCUs[0])
+	generateSymbolTable(idt.MCUs)
 }
 
 func forwardDCT(idt *ImageData) {
