@@ -154,7 +154,7 @@ func getImageData(fn string) *ImageData {
 	// check for the 'BM' bytes
 	if b1 != 66 && b2 != 77 {
 		fmt.Printf("Error. The file '%s' is not a valid bitmap file\n", fn)
-		return &idt
+		return nil
 	}
 	// the filelength
 	idt.size = bf.read4()
@@ -221,9 +221,14 @@ func decodeBitmap(f string) {
 		return
 	}
 	forwardDCT(idt)
+	fmt.Printf("MCU Coeffecients after FDCT\n")
+	writeMCU(idt.MCUs[0])
 	quantize(idt, stb1, stb2)
-	//writeMCU(idt.MCUs[0])
-	generateSymbolTable(idt.MCUs)
+	fmt.Printf("MCU Coeffecients after quantization\n")
+	writeMCU(idt.MCUs[0])
+	_, act := generateSymbolTable(idt.MCUs)
+	codes := generateCodes(act)
+	printCodes(codes)
 }
 
 func forwardDCT(idt *ImageData) {

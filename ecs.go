@@ -2,14 +2,9 @@
 package main
 
 import (
+	"fmt"
 	"math"
 )
-
-// holds the symbol frequency and corresponding code
-type SymbolMapping struct {
-	code      uint16 // codes can have a max lenght of 16
-	frequency uint64 // the frequency of the symbol
-}
 
 // helper function to  get the number of bits required to represent a given +value
 func bitLength(val uint8) uint8 {
@@ -25,7 +20,15 @@ func bitLength(val uint8) uint8 {
 	}
 }
 
-func generateSymbolTable(MCUs []MCU) {
+// helper function to print the frequency tables
+func printFrequencyTable(ft map[uint8]int64) {
+	for k, v := range ft {
+		fmt.Printf("0x%x -> %d\n", k, v)
+	}
+	fmt.Printf("\n")
+}
+
+func generateSymbolTable(MCUs []MCU) (map[uint8]int64, map[uint8]int64) {
 	// the array of blocks
 	ecsBlocks := []uint16{}
 	// the ac symbol table
@@ -52,6 +55,7 @@ func generateSymbolTable(MCUs []MCU) {
 			// number of zeroes
 			nz := 0
 			for {
+				// Todo: DC Values should be encoded as being relative to one another
 				if c == 0 {
 					// the upper nibble for dc values is always 0
 					un := uint8(0x00)
@@ -86,8 +90,18 @@ func generateSymbolTable(MCUs []MCU) {
 				} else {
 					if c == 64 {
 						if nz > 0 {
-							// Todo: encode the block
-							ecsBlocks = append(ecsBlocks, uint16(0x00))
+							// Reaching at this branch means that all the remaining coeffecients are
+							// all zero. So the symbol to use is 0x00
+							sym := uint8(0x00)
+							if _, ok := ACFrequencyTable[sym]; ok {
+								ACFrequencyTable[sym] += 1
+							} else {
+								ACFrequencyTable[sym] = 1
+							}
+							block := uint16(0x0000)
+							block |= 1
+							block <<= 15
+							ecsBlocks = append(ecsBlocks, block)
 						}
 						break
 					}
@@ -150,4 +164,5 @@ func generateSymbolTable(MCUs []MCU) {
 			}
 		}
 	}
+	return DCFrequencyTable, ACFrequencyTable
 }
